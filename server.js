@@ -177,6 +177,40 @@ BigText: ${notification.bigText || ''}
          }
       }
 
+      // Extract Payment Code (VNDOCS)
+      let paymentCode = null;
+      const rawText = notification.text || "";
+      const regex = /vndocs\s+(.+)/i;
+      const match = rawText.match(regex);
+      if (match) {
+        const tokens = match[1].split(/\s+/);
+        let firstValidToken = null;
+        let emailToken = null;
+        for (const token of tokens) {
+          if (/^FT[A-Z0-9]+$/i.test(token)) continue;
+          if (token.includes('/')) continue;
+          
+          const cleanNum = token.replace(/[^\d]/g, '');
+          if (parsedData.amount && cleanNum === String(parsedData.amount)) continue;
+          
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(token)) {
+            emailToken = token;
+            break;
+          }
+          if (!firstValidToken) {
+            firstValidToken = token;
+          }
+        }
+        if (emailToken) {
+          paymentCode = emailToken.toLowerCase().trim();
+        } else if (firstValidToken) {
+          paymentCode = firstValidToken.toLowerCase().trim();
+        }
+      }
+
+      parsedData.paymentCode = paymentCode;
+      parsedData.contentRaw = rawText; // For internal debugging
+
       console.log(`✅ Model thành công: ${model}`);
       return { parsedData, model };
     } catch (error) {
@@ -192,19 +226,50 @@ BigText: ${notification.bigText || ''}
   };
 }
 
+
+app.get('/api/transactions', (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  if (process.env.BANKHOOK_API_KEY && apiKey !== process.env.BANKHOOK_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const limit = parseInt(req.query.limit) || 50;
+  const maxLimit = Math.min(limit, 100);
+  
+  const formattedTransactions = transactions.slice(0, maxLimit).map(tx => ({
+    receivedAt: tx.receivedAt || new Date().toISOString(),
+    bank: tx.bank,
+    direction: tx.direction,
+    amount: tx.amount,
+    currency: tx.currency || 'VND',
+    content: tx.content || null,
+    transactionId: tx.transactionId || null,
+    referenceCode: tx.referenceCode || null
+  }));
+
+  res.json({
+    transactions: formattedTransactions,
+    note: "Data is currently stored in RAM and will be lost on server restart."
+  });
+});
+
 app.post('/api/receive', async (req, res) => {
   try {
     const notification = req.body;
-    console.log('Received:', notification.packageName, notification.title);
+    // Đã xoá log raw notification thô để bảo mật
     
     const result = await parseWithGroq(notification);
     
     const { parsedData, model } = result;
 
-    // Lưu vào mảng để hiển thị lên giao diện Web
+    // Lưu vào mảng để hiển thị lên giao diện Web (giấu contentRaw)
+    const displayData = { ...parsedData };
+    delete displayData.contentRaw; // Không hiển thị raw notification
+
     transactions.unshift({
       time: new Date().toLocaleString('vi-VN'),
-      ...parsedData
+      receivedAt: new Date().toISOString(),
+      ...displayData
     });
     
     res.json({ status: 'ok', parsed: parsedData, model });

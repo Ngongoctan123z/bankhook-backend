@@ -1,34 +1,69 @@
 
 
 async function runTest() {
-  const payload = {
-    packageName: "com.mbmobile",
-    title: "MB Bank",
-    text: "Thông báo biến động số dư: TK 05xxx172|GD: +10,000VND 07/10/26 21:35|SD: 150,000VND|TU: NGO NGOC TAN - 2820052025|ND: vndocs 123 FT26281259614610 k2PPNHDA/638453",
-    bigText: ""
-  };
-
-  console.log("Sending payload:", payload);
-
-  const res = await fetch('http://localhost:3000/api/receive', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  const data = await res.json();
-  console.log("Response:", JSON.stringify(data, null, 2));
-
-  if (data.parsed) {
-    const { content, transactionId, referenceCode } = data.parsed;
-    if (content === "vndocs 123" && transactionId === "FT26281259614610" && referenceCode === "k2PPNHDA/638453") {
-      console.log("✅ Regression Test PASSED!");
-    } else {
-      console.error("❌ Regression Test FAILED! Parsed output does not match expectations.");
+  const testCases = [
+    {
+      name: "Case 1: Normal with email",
+      text: "Thông báo: TK 05xxx172|GD: +10,000VND|ND: 56890 VNDOCS ngongoctan282005 email abc@example.com 2356899 FT26281359498067 k2PPNHDA/638453",
+      expectedPaymentCode: "abc@example.com"
+    },
+    {
+      name: "Case 2: Normal string token",
+      text: "VNDOCS ngongoctan282005 FT123456 ABC/789",
+      expectedPaymentCode: "ngongoctan282005"
+    },
+    {
+      name: "Case 3: Direct email token",
+      text: "VNDOCS abc@example.com FT123456",
+      expectedPaymentCode: "abc@example.com"
+    },
+    {
+      name: "Case 4: No VNDOCS",
+      text: "Thanh toan tien nha ngongoctan282005 FT123456",
+      expectedPaymentCode: null
+    },
+    {
+      name: "Case 5: Amount mixed after VNDOCS",
+      text: "GD: +50,000VND|ND: VNDOCS 50000 ngongoctan282005 FT123",
+      expectedPaymentCode: "ngongoctan282005"
     }
-  } else {
-    console.error("❌ Regression Test FAILED! No parsed data returned.");
+  ];
+
+  let passed = 0;
+  for (const tc of testCases) {
+    const payload = {
+      packageName: "com.mbmobile",
+      title: "MB Bank",
+      text: tc.text,
+      bigText: ""
+    };
+
+    const res = await fetch('http://localhost:3005/api/receive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const textRes = await res.text();
+    let data;
+    try {
+      data = JSON.parse(textRes);
+    } catch (e) {
+      console.error(`❌ ${tc.name} FAILED! Server returned non-JSON: ${res.status} ${res.statusText}`);
+      console.error(textRes);
+      continue;
+    }
+
+    if (data.parsed && data.parsed.paymentCode === tc.expectedPaymentCode) {
+      console.log(`✅ ${tc.name} PASSED (paymentCode: ${tc.expectedPaymentCode})`);
+      passed++;
+    } else {
+      console.error(`❌ ${tc.name} FAILED! Expected: ${tc.expectedPaymentCode}, Got: ${data.parsed?.paymentCode}`);
+      console.error(data.parsed);
+    }
   }
+
+  console.log(`\nResults: ${passed}/${testCases.length} Passed`);
 }
 
 runTest();
