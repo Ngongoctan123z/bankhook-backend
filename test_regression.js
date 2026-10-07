@@ -26,6 +26,16 @@ async function runTest() {
       name: "Case 5: Amount mixed after VNDOCS",
       text: "GD: +50,000VND|ND: VNDOCS 50000 ngongoctan282005 FT123",
       expectedPaymentCode: "ngongoctan282005"
+    },
+    {
+      name: "Case 6: vndocs-plus attached",
+      text: "ND: vndocs-plus-ngongoctan282005@gmail.com FT123456",
+      expectedPaymentCode: "vndocs-plus-ngongoctan282005@gmail.com"
+    },
+    {
+      name: "Case 7: vndocs-pro attached",
+      text: "ND: vndocs-pro-abc@example.com k2PPNHDA/638453",
+      expectedPaymentCode: "vndocs-pro-abc@example.com"
     }
   ];
 

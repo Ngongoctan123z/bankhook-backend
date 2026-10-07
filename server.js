@@ -125,6 +125,14 @@ Example 3:
 Input: ...|ND: TRA NO FT111222333 XYZ/456
 Output: {"content":"TRA NO","transactionId":"FT111222333","referenceCode":"XYZ/456"}
 
+Example 4:
+Input: ...|ND: vndocs-plus-ngongoctan282005@gmail.com FT123456
+Output: {"content":"vndocs-plus-ngongoctan282005@gmail.com","transactionId":"FT123456","referenceCode":null}
+
+Example 5:
+Input: ...|ND: vndocs-pro-abc@example.com k2PPNHDA/638453
+Output: {"content":"vndocs-pro-abc@example.com","transactionId":null,"referenceCode":"k2PPNHDA/638453"}
+
 Notification:
 Package: ${notification.packageName}
 Title: ${notification.title}
@@ -180,13 +188,25 @@ BigText: ${notification.bigText || ''}
       // Extract Payment Code (VNDOCS)
       let paymentCode = null;
       const rawText = notification.text || "";
-      const regex = /vndocs\s+(.+)/i;
-      const match = rawText.match(regex);
-      if (match) {
-        const tokens = match[1].split(/\s+/);
+      const tokens = rawText.split(/\s+/);
+      let vndocsIndex = -1;
+      
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].toLowerCase().includes('vndocs')) {
+          if (tokens[i].toLowerCase() !== 'vndocs') {
+             paymentCode = tokens[i].toLowerCase().trim();
+             break;
+          }
+          vndocsIndex = i;
+          break;
+        }
+      }
+      
+      if (!paymentCode && vndocsIndex !== -1) {
         let firstValidToken = null;
         let emailToken = null;
-        for (const token of tokens) {
+        for (let i = vndocsIndex + 1; i < tokens.length; i++) {
+          const token = tokens[i];
           if (/^FT[A-Z0-9]+$/i.test(token)) continue;
           if (token.includes('/')) continue;
           
