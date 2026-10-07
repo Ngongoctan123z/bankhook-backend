@@ -105,11 +105,12 @@ Cấu trúc JSON yêu cầu:
 }
 
 Quy tắc:
-- Sau nhãn \`ND:\` / \`Nội dung:\` / \`Noi dung:\`, lấy lời nhắn tự do làm content.
+- MỤC TIÊU TỐI THƯỢNG: Chỉ trích xuất ĐÚNG và DUY NHẤT nội dung người dùng thực sự nhập vào khi chuyển khoản (VD: mã VNDOCS, tên gói, email, lời nhắn).
+- BẮT BUỘC LỌC BỎ 100% SỐ RÁC: Xóa sạch mọi dãy số nhăng cuội do ngân hàng tự chèn vào (như số tài khoản, số dư, số tiền, ngày giờ, số thẻ, số máy POS).
 - Content kết thúc NGAY TRƯỚC token mã kỹ thuật đầu tiên.
-- transactionId là token kỹ thuật đầu tiên sau content, ưu tiên token bắt đầu bằng chữ và có chữ + số, ví dụ \`FT26281259614610\`.
+- transactionId là token kỹ thuật đầu tiên sau content, ưu tiên mã bắt đầu bằng chữ và có chữ + số, ví dụ \`FT26281259614610\`.
 - referenceCode là token kỹ thuật tiếp theo có dấu \`/\`.
-- Không bao giờ đưa transactionId/referenceCode/số tiền/số dư/tài khoản/thời gian vào content.
+- TUYỆT ĐỐI Không bao giờ đưa transactionId / referenceCode / số tiền / số dư / tài khoản / thời gian vào trường \`content\`.
 - Nếu không đủ chắc chắn, trả null thay vì đoán.
 
 Examples:
@@ -132,6 +133,10 @@ Output: {"content":"vndocs-plus-ngongoctan282005@gmail.com","transactionId":"FT1
 Example 5:
 Input: ...|ND: vndocs-pro-abc@example.com k2PPNHDA/638453
 Output: {"content":"vndocs-pro-abc@example.com","transactionId":null,"referenceCode":"k2PPNHDA/638453"}
+
+Example 6:
+Input: ...|GD: +150,000VND|SD: 500,000VND|ND: 12345678 vndocs-plus-abc@gmail.com 0987654321 FT12345
+Output: {"content":"vndocs-plus-abc@gmail.com","transactionId":"FT12345","referenceCode":null}
 
 Notification:
 Package: ${notification.packageName}
