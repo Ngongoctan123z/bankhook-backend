@@ -52,8 +52,9 @@ app.get('/', (req, res) => {
     html += `<tr><td colspan="6" class="empty">Chưa có giao dịch nào. Hãy dùng Postman gửi test!</td></tr>`;
   } else {
     transactions.forEach(tx => {
-      const typeClass = tx.direction === 'CREDIT' ? 'credit' : 'debit';
-      const typeText = tx.direction === 'CREDIT' ? '+ NHẬN' : '- TRỪ';
+      const isCredit = tx.direction === 'CREDIT' || tx.direction === 'IN';
+      const typeClass = isCredit ? 'credit' : 'debit';
+      const typeText = isCredit ? '+ NHẬN' : '- TRỪ';
       const amount = tx.amount ? tx.amount.toLocaleString('vi-VN') : 0;
       
       html += `
@@ -63,7 +64,7 @@ app.get('/', (req, res) => {
           <td class="${typeClass}">${typeText}</td>
           <td class="${typeClass}">${amount} ${tx.currency || 'VND'}</td>
           <td>${tx.content || ''}</td>
-          <td>${tx.transactionReference || ''}</td>
+          <td>${tx.transactionId || tx.transactionReference || ''}</td>
         </tr>
       `;
     });
@@ -94,13 +95,35 @@ Chỉ trả về một đối tượng JSON hợp lệ, không dùng markdown co
 Cấu trúc JSON yêu cầu:
 {
   "bank": "MB|BIDV|UNKNOWN",
-  "direction": "CREDIT|DEBIT|UNKNOWN",
+  "direction": "IN|OUT|UNKNOWN",
   "amount": number|null,
   "currency": "VND",
   "content": string|null,
-  "transactionReference": string|null,
+  "transactionId": string|null,
+  "referenceCode": string|null,
   "confidence": number
 }
+
+Quy tắc:
+- Sau nhãn \`ND:\` / \`Nội dung:\` / \`Noi dung:\`, lấy lời nhắn tự do làm content.
+- Content kết thúc NGAY TRƯỚC token mã kỹ thuật đầu tiên.
+- transactionId là token kỹ thuật đầu tiên sau content, ưu tiên token bắt đầu bằng chữ và có chữ + số, ví dụ \`FT26281259614610\`.
+- referenceCode là token kỹ thuật tiếp theo có dấu \`/\`.
+- Không bao giờ đưa transactionId/referenceCode/số tiền/số dư/tài khoản/thời gian vào content.
+- Nếu không đủ chắc chắn, trả null thay vì đoán.
+
+Examples:
+Example 1:
+Input: ...|ND: vndocs 123 FT26281259614610 k2PPNHDA/638453
+Output: {"content":"vndocs 123","transactionId":"FT26281259614610","referenceCode":"k2PPNHDA/638453"}
+
+Example 2:
+Input: ...|ND: thanh toan don hang 102 FT987654321 ABCD/999
+Output: {"content":"thanh toan don hang 102","transactionId":"FT987654321","referenceCode":"ABCD/999"}
+
+Example 3:
+Input: ...|ND: TRA NO FT111222333 XYZ/456
+Output: {"content":"TRA NO","transactionId":"FT111222333","referenceCode":"XYZ/456"}
 
 Notification:
 Package: ${notification.packageName}
@@ -130,11 +153,28 @@ BigText: ${notification.bigText || ''}
         throw new Error(`JSON Parse Error: ${e.message}`);
       }
 
-      const requiredFields = ["bank", "direction", "amount", "currency", "content", "transactionReference", "confidence"];
+      const requiredFields = ["bank", "direction", "amount", "currency", "content", "transactionId", "referenceCode", "confidence"];
       const missingFields = requiredFields.filter(field => parsedData[field] === undefined);
 
       if (missingFields.length > 0) {
         throw new Error(`Thiếu field trong JSON: ${missingFields.join(", ")}`);
+      }
+
+      // Validation & Post-processing
+      if (parsedData.content) {
+         let contentTokens = parsedData.content.split(' ');
+         contentTokens = contentTokens.filter(token => !/^FT[A-Z0-9]+$/i.test(token) && !token.includes('/'));
+         parsedData.content = contentTokens.join(' ').trim();
+      }
+      if (parsedData.transactionId) {
+         if (!/[A-Za-z]/.test(parsedData.transactionId) || !/[0-9]/.test(parsedData.transactionId)) {
+            parsedData.transactionId = null;
+         }
+      }
+      if (parsedData.referenceCode) {
+         if (!parsedData.referenceCode.includes('/')) {
+            parsedData.referenceCode = null;
+         }
       }
 
       console.log(`✅ Model thành công: ${model}`);
