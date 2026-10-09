@@ -106,6 +106,9 @@ Cấu trúc JSON yêu cầu:
 
 Quy tắc:
 - MỤC TIÊU TỐI THƯỢNG: Chỉ trích xuất ĐÚNG và DUY NHẤT nội dung người dùng thực sự nhập vào khi chuyển khoản (VD: mã VNDOCS, tên gói, email, lời nhắn).
+- NẾU NỘI DUNG CÓ "vndocs": BẮT BUỘC chỉ đọc từ chữ "vndocs" đến chữ "com". 
+- BỎ QUA HOÀN TOÀN TẤT CẢ các từ/ký tự rác phía sau chữ "com" (ví dụ: "- Ma GD", "chuyen khoan", v.v.).
+- KIỂM TRA LẠI 2 LẦN: Đảm bảo trường "content" kết thúc tại "com" và không chứa bất kỳ từ thừa nào sau đó.
 - BẮT BUỘC LỌC BỎ 100% SỐ RÁC: Xóa sạch mọi dãy số nhăng cuội do ngân hàng tự chèn vào (như số tài khoản, số dư, số tiền, ngày giờ, số thẻ, số máy POS).
 - Content kết thúc NGAY TRƯỚC token mã kỹ thuật đầu tiên.
 - transactionId là token kỹ thuật đầu tiên sau content, ưu tiên mã bắt đầu bằng chữ và có chữ + số, ví dụ \`FT26281259614610\`.
